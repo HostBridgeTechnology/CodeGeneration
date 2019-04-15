@@ -1,0 +1,83 @@
+(function () {
+	var common = require('common', 'hbutils');
+	var debugging = require('debugging', 'hbutils');
+
+	{{#v2noneCompatible}}exports.{{bufferName}} = function (options) {
+		var self = this;
+		this.options = typeof options === 'object'? options : {};{{/v2noneCompatible}}{{#v2Compatible}}exports.{{bufferName}}Copybook  = function (options) {
+		var self = this;
+		
+		switch (typeof options) {
+			case 'object' :
+				this.options = options;
+				break;
+			case 'string' :
+				this.options = {
+					initialize : true,
+					initCharacter : options
+				};
+				break;
+			default :
+				this.options = {
+					initialize : true,
+					initCharacter : ' '
+				}	
+		}
+		{{/v2Compatible}}
+
+		this._length = {{bufferLength}};
+		this._cobolNames = true;
+
+		this._fields =  {
+			{{#fields}}'{{cobolName}}' : {{fieldIndex}},
+			{{/fields}}};
+		
+		this._offset = {
+			type 		: 0,
+			signed 		: 1,
+			precision	: 2,
+			scale		: 3,
+			length 		: 4,
+			position 	: 8,
+			occurs 		: 12,
+			occParent	: 16,
+			parent		: 20
+		};
+		
+		this._type = ["group", "character", "binary", "packed", "zoned"];
+		
+		this._attributeFieldLength = {{attributeFieldLength}};
+		 
+		this._attributes = new StringBuffer('' + 
+			{{#fields}}'{{attributes}}' +   // {{cobolName}} [{{fieldIndex}}] | t={{type}} signed={{signed}} pre={{precision}} scale={{scale}} len={{length}} pos={{position}} occ={{occurs}}   
+			{{/fields}}'');
+		
+
+		/*
+		 * Add methods to this object
+		 */
+		try {
+			/*
+			 * If no object containing the copybook methods is passed in then use the default methods in common
+			 */
+			if (typeof this.options.methods !== 'object') this.options.methods = common.copybookMethods;
+			for (var method in this.options.methods) {
+				this[method] = this.options.methods[method];
+			}
+		} catch (e) {
+			/*
+			 * If copybookMethods does not exist in common ignor and continue, assume the user will add 
+			 * methods later.
+			 */
+		}
+		
+		/*
+		 * If the option initialize is true then call the initialize method, it assumes the 
+		 * initialize method was added above.
+		 */
+		if (this.options.initialize === true) {
+			this.initialize();
+		}
+				
+	}
+}) ();

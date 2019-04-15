@@ -1,0 +1,136 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+		<title>Copybook First</title>
+		<style>			
+			#errorArea {
+				width: 500px;
+				border: groove;
+				padding: 15px;
+			}
+			#errorHeader {
+				color: red;
+			}
+            .inputfile {
+                width: 100px;
+            }
+            img {
+                position: absolute;
+                left: 500px;
+                width: 300px;
+            }
+
+            .fileList {
+                float: right;
+                left: 500px;
+                width: 300px;
+            }
+            .button {
+            	border-radius: 12px;
+            }
+            
+            td {
+            	padding: 5px 15px 5px 15px;
+            	vertical-align: top;
+            }
+			
+		</style>
+		<script>
+
+		</script>
+</head>
+
+<body style="width: 800px; padding: 15px;">
+
+<div id="mainColumn">
+	<img alt="HostBridge Logo"
+		src="data:image/png;base64,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">
+    <h1>Copybook First</h1>
+    <br/>
+	<p>
+		This HostBridge utility generates all of the elements to necessary to 
+		build a standard web service.  All that is required is a COBOL copybook(s) that 
+		describes the input and output.
+	</p>
+    	<form method="post" enctype="multipart/form-data" action="/copybook/upload">
+            <br/>
+            <div>
+                <strong> Select Copybook(s) </strong><br/>
+                <input type="file" id="copybookIn" name="copybookIn" />
+                <br/><br/><br/><br/>
+            </div>
+            <div style="float: left;">
+            	<strong>Field Names</strong>
+            	<table>
+            		<tr>
+            			<td>COBOL</td>
+            			<td><input id="cob" type="checkbox" name="cob" checked/></td>
+            		</tr>
+            		<tr>
+            			<td>JavaScript</td>
+            			<td><input id="js" type="checkbox" name="js"/></td>
+            		</tr>
+            	</table>
+            </div>
+            <div >
+                <strong>Output sent to zip file</strong>
+                <table>
+                	<tr>
+                		<td>V4 JS Object</td>
+                		<td><input id="v4" type="checkbox" name="v4" checked/></td>
+                	</tr>
+                   	<tr>
+                		<td>V3 JS Object (deprecated)</td>
+                		<td><input id="v3" type="checkbox" name="v3"/></td>
+                	</tr>
+                   	<tr>
+                		<td>Copybook Lite (deprecated)</td>
+                		<td><input id="v2" type="checkbox" name="v2"/></td>
+                	</tr>
+                   	<tr>
+                		<td>Copybook Full (deprecated)</td>
+                		<td><input id="v1" type="checkbox" name="v1"/></td>
+                	</tr>
+                	<tr>
+                		<td>Intermediate XML</td>
+                		<td><input id="xml" type="checkbox" name="xml"/></td>
+                	</tr>
+                  	<tr>
+                		<td>Input Copybook</td>
+                		<td><input id="icb" type="checkbox" name="icb"/></td>
+                	</tr>
+                </table>
+            </div>
+            <br/><br/>
+            <strong>Generate backward compatible V2 constructor?</strong><input id="v2Compatibility" type="checkbox" name="v2Compatibility"/>
+            <br/><br/><br/><br/>
+            <input class="button" type="submit" value="Generate JavaScript">
+    	</form>
+		<br/><br/><br/><br/>
+		<table>
+			<thead>
+				<tr>
+					<th colspan="2">Copybook</th>
+					<th>Zip</th>
+				</tr>
+				<tr>
+					<th>File Name</th>
+					<th>Size</th>
+					<th>Download</th>
+					<th>Messages</th>
+				</tr>
+			</thead>
+			<tbody>
+				{{#files}}
+				<tr>
+					<td>{{name}}</td>
+					<td align="right">{{size}}</td>
+					<td align="center"><a href="/copybook/download/{{uuid}}/{{prefix}}"><button class="button" type="button">{{prefix}}.zip</button></a></td>
+					<td style="color: red;"><pre>{{{xmsg}}}</pre></td>
+				</tr>
+				{{/files}}
+			</tbody>
+		</table>
+</body>
+</html>

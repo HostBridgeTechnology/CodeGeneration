@@ -1,0 +1,185 @@
+(function () {
+	exports.{{bufferName}}Copybook = function (o) {
+		var options = {
+			initialize : true,
+			initChar : ' '
+		}
+		
+		if (typeof(o) == 'object') 
+			for (var p in o) {
+				options[p] = o[p];
+			}
+		
+		var bufferLength = {{bufferLength}};
+		
+		this.buffer =  new StringBuffer(bufferLength, options.initChar);
+		
+		var me = this;
+		
+		this.zeroIndexes = function() {
+			if (options.initialize) {
+				for (var n in this.fields) {
+					if (this.fields[n]._index) {
+						this.fields[n]._index = 0;
+					}
+				}
+			}
+		}
+		
+		function fieldSetter(v) {
+			var offSet = this.offset();
+			switch(this.type) {
+				case 'CHAR':
+				case 'GROUP':
+					v = v.toString();
+					if (v.length < this.length) {
+						me.buffer.fillAt(offSet, ' ', this.length);
+					}
+					me.buffer.assignAt(offSet, v.length > this.length ? v.substring(0,this.length) : v);
+					break;
+				case 'BINARY':
+					me.buffer.setBinaryAt(offSet, v, this.precision, this.signed ? true : false);
+					break;
+				case 'COMP3':
+					me.buffer.setPackedAt(offSet, v, this.precision, this.scale ? this.scale : 0, this.signed ? true : false);
+					break;
+				case 'ZONED':
+					me.buffer.setZonedAt(offSet, v, this.precision, this.scale ? this.scale : 0, this.signed ? true : false);
+					break;
+				default:
+					throw new TypeError("Invalid copybook data type " + this.type + " for " + this.name.cobol);
+			}
+		}
+		
+		function fieldValueOf () {
+			switch(this.type) {
+				case 'CHAR':
+				case 'GROUP':
+					return(me.buffer.substr(this.offset(), this.length));
+				case 'BINARY':
+					return(me.buffer.binaryAt(this.offset(), this.precision, this.signed ? true : false));
+				case 'COMP3':
+					return(me.buffer.packedAt(this.offset(), this.precision, this.scale ? this.scale : 0));
+				case 'ZONED':
+					return(me.buffer.zonedAt(this.offset(), this.precision, this.scale ? this.scale : 0));
+				default:
+					throw "Invalid copybook data type:" + this.type;			
+			}
+		}
+		
+		function fieldtoString () {
+			switch(this.type) {
+				case 'CHAR':
+				case 'GROUP':
+					return(me.buffer.substr(this.offset(), this.length));
+				case 'BINARY':
+					return(me.buffer.binaryAt(this.offset(), this.precision, this.signed ? true : false).toString());
+				case 'COMP3':
+					return(me.buffer.packedAt(this.offset(), this.precision, this.scale ? this.scale : 0).toString());
+				case 'ZONED':
+					return(me.buffer.zonedAt(this.offset(), this.precision, this.scale ? this.scale : 0).toString());
+				default:
+					throw "Invalid copybook data type:" + this.type;
+			}
+		}
+		
+		function fieldOffset() {
+			var o = this.position;;
+			if (this.scalar) return (o);
+			
+			if (this.occurs)
+				o += this.length * this._index;
+			
+			for (var e = 0; e < this.occurParents.length ; e++) {
+				o += me.fields[this.occurParents[e]].length * me.fields[this.occurParents[e]]._index;
+			}
+				
+			return (o);
+		}
+		
+		this.autoIndex = function (f) {
+			var max = [], current = [];
+			if (f.occurs) max.push(f.occurs); 
+			for (var e = 0; e < f.occurParents.length; e++) {
+				max.push(me.fields[f.occurParents[e]].occurs);
+			}
+			for (var i = 0; i < max.length; i++) current[i] = 0;
+			var first = true;
+			this.next = function () {
+				if (first) {
+					first = false;
+					return(current);
+				}
+				for (var i = max.length; i>0; i--) {
+					if (++current[i-1] < max[i-1]) {
+						return (current);
+					}
+					current[i-1] = 0;
+				}
+				return(false);
+			}
+		}
+		
+		function fieldIndex() {
+			if (arguments.length == 0) return(this);
+			var indexes = [].slice.call(arguments);
+			if (this.occurs) {
+				var idx = indexes.pop();
+				if (idx >= 0 && idx < this.occurs ) this._index = idx; 
+				else throw "Index (" + idx + ") out of bounds on " + this.name.cobol;
+			}
+		
+			fieldIndex.apply(me.fields[this.occurParents[this.occurParents.length - 1]],indexes);
+	 		
+	 		return(this);
+		}
+		
+		this.fields = { 
+			{{#fields}}{{jsName}} : {
+				name 		: { js : '{{jsName}}', cobol : '{{cobolName}}' },
+				level		: {{level}},
+				type		: '{{type}}',{{#signed}}
+				signed		: {{signed}},{{/signed}}{{#scale}}
+				scale		: {{scale}},{{/scale}}{{#redefine}}
+				redefine	: '{{redefine}}',{{/redefine}}{{#picture}}
+				picture		: '{{picture}}',{{/picture}}{{#occurs}}
+				occurs		: {{occurs}},
+				_index		: 0,{{/occurs}}{{#min}}
+				min			: {{min}},{{/min}}{{#dependent}}
+				dependent	: {{dependent}}{{/dependent}}{{#precision}}
+				precision	: {{precision}},{{/precision}}{{#initial}}
+				initial		: '{{initial}}',{{/initial}}
+				dependingOn	: {{dependingOn}},
+				scalar		: {{scalar}},
+				length		: {{length}},
+				position	: {{position}},
+				parent		: '{{parent}}',
+				occurParents: {{occurParents}}
+			}, {{/fields}}
+		}
+	
+		for each (var n in this.fields) {
+			n.offset = fieldOffset;
+			n.set = fieldSetter;
+			n.get = fieldValueOf;
+			n.valueOf = fieldValueOf;
+			n.index = fieldIndex;
+			n.toString = fieldtoString;
+			if (n.initial && options.initialize != false) {
+				var initialValue = n.type == 'CHAR' || n.type == 'GROUP' ? n.initial : Number(n.initial);
+				if (n.scalar) {
+					n.set(initialValue);
+				}
+				else {
+					var a = new	this.autoIndex(n);
+					var ixArray = a.next();
+					while (ixArray instanceof Array) {
+						fieldIndex.apply(n, ixArray);
+						n.set(initialValue);
+						ixArray = a.next();
+					}
+				}
+			}
+		}
+	}
+}) ();

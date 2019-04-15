@@ -1,0 +1,190 @@
+(function () {
+	exports.{{bufferName}}Copybook = function (initChar) {
+		if (initChar == undefined) initChar = ' ';
+		
+		var bufferLength = {{bufferLength}};
+		this.buffer =  new StringBuffer(bufferLength, initChar);
+		var me = this; 
+
+		var fields =  {
+			{{#fields}}{{jsName}} : {{fieldIndex}},
+			{{/fields}}};
+		
+		/*
+		 * Byte
+		 * 00    -  Field data type
+		 *             0 - Group or Char
+		 *             1 - Binary or COMP
+		 *             2 - COMP3 or Packed
+		 *             3 - Zoned
+		 * 01    -  Signed
+		 *             0 - False
+		 *             1 - True
+		 * 02    -  Precision
+		 * 03    -  Scale
+		 * 04-07 -  Length
+		 * 08-11 -  Position
+		 * 12-15 -  Occurs
+		 * 16-20 -  Index of Occurs Parent
+		 * 
+		 */
+		 
+		var attributes = new StringBuffer('' + 
+			{{#fields}}'{{attributes}}' +   // {{jsName}} [{{fieldIndex}}] | t={{type}} signed={{signed}} pre={{precision}} scale={{scale}} len={{length}} pos={{position}} occ={{occurs}}   
+			{{/fields}}'');
+		
+		var OffsetType 		= 0;
+		var OffsetSigned 	= 1;
+		var OffsetPrecision	= 2;
+		var OffsetScale		= 3;
+		var OffsetLength 	= 4;
+		var OffsetPosition 	= 8;
+		var OffsetOccurs 	= 12;
+		var OffsetOccParent	= 16;
+		var attributeFieldLength = {{attributeFieldLength}};
+		
+		this.getAttr = function (name) {
+			var index = fields[ name ];
+			if (index == undefined) 
+				throw new ReferenceError("Invalid field name (" + name + ") for getAttr");
+			var attributeOffset = index * attributeFieldLength;
+			
+			var fieldAttr = {
+				type: attributes.charCodeAt( attributeOffset ),
+				signed: attributes.charCodeAt( attributeOffset + OffsetSigned ) == 1 ? true : false,
+				precision: attributes.charCodeAt( attributeOffset + OffsetPrecision ),
+				scale: attributes.charCodeAt( attributeOffset + OffsetScale ),
+				length: attributes.fullwordAt( attributeOffset + OffsetLength ),
+				position: attributes.fullwordAt( attributeOffset + OffsetPosition ),
+				occurs: []
+			}
+			
+			var occurs = attributes.fullwordAt( attributeOffset + OffsetOccurs );
+			var occParent = attributes.fullwordAt( attributeOffset + OffsetOccParent );
+			
+			if (occurs > 1) 
+				fieldAttr.occurs.push(occurs);
+				
+			while (occParent > 0) {
+				attributeOffset = occParent * attributeFieldLength;
+				
+				occurs = attributes.fullwordAt( attributeOffset + OffsetOccurs );
+				occParent = attributes.fullwordAt( attributeOffset + OffsetOccParent );
+				
+				if (occurs > 1) 
+					fieldAttr.occurs.push(occurs);
+			}
+			
+			return(fieldAttr);
+		}
+		
+		this.get = function( name ) {
+			var index = fields[ name ];
+			if (index == undefined) 
+				throw new ReferenceError("Invalid field name (" + name + ") for get");
+			var attributeOffset = index * attributeFieldLength;	
+			
+			var ii = 1;
+			var ao = attributeOffset;
+			var fieldOffset = attributes.fullwordAt( ao + OffsetPosition );
+			for (var over=0; ii < arguments.length; over++ ) {
+				if (over>20) 
+					throw new Error("Corrupted copybook pointer");	
+				if (ao == 0)
+					throw new ReferenceError("Too many indexes specified for field " + name);
+				
+				if ( attributes.fullwordAt( ao + OffsetOccurs) <= 1 ) {
+					ao = attributes.fullwordAt( ao + OffsetOccParent ) * attributeFieldLength;
+					continue;
+				}
+				
+				if (arguments[ii] >= attributes.fullwordAt( ao + OffsetOccurs)) 
+					throw new ReferenceError("Occurs out of bounds " + name);
+				
+				fieldOffset += arguments[ii] * attributes.fullwordAt( ao + OffsetLength );
+				ao = attributes.fullwordAt( ao + OffsetOccParent ) * attributeFieldLength;
+				ii++;
+			}
+
+			switch(attributes.charCodeAt( attributeOffset )) {
+				case 0:
+					return(me.buffer.substr(fieldOffset, 
+											attributes.fullwordAt( attributeOffset + OffsetLength )));
+				case 1:
+					return(me.buffer.binaryAt(fieldOffset, 
+											  attributes.charCodeAt( attributeOffset + OffsetPrecision ), 
+											  attributes.charCodeAt( attributeOffset + OffsetSigned ) ? true : false));
+				case 2:
+					return(me.buffer.packedAt(fieldOffset, 
+											  attributes.charCodeAt( attributeOffset + OffsetPrecision ), 
+											  attributes.charCodeAt( attributeOffset + OffsetScale )));
+				case 3:
+					return(me.buffer.zonedAt(fieldOffset, 
+											 attributes.charCodeAt( attributeOffset + OffsetPrecision ), 
+											 attributes.charCodeAt( attributeOffset + OffsetScale )));
+				default:
+					throw new TypeError("Invalid copybook data type " + attributes.charCodeAt( attributeOffset ) + " for " + name);
+			}
+		}
+		
+		this.set = function(name, value){
+			var index = fields[ name ];
+			if (index == undefined) 
+				throw new ReferenceError("Invalid field name (" + name + ") for set");
+			var attributeOffset = index * attributeFieldLength;
+			
+			var ii = 2;
+			var ao = attributeOffset;
+			var fieldOffset = attributes.fullwordAt( ao + OffsetPosition );
+			for (var over=0; ii < arguments.length; over++ ) {
+				if (over>20) 
+					throw new Error("Corrupted copybook pointer");	
+				if (ao == 0) 
+					throw new ReferenceError("Too many indexes specified for field " + name);
+				
+				if ( attributes.fullwordAt( ao + OffsetOccurs) <= 1 ) {
+					ao = attributes.fullwordAt( ao + OffsetOccParent ) * attributeFieldLength;
+					continue;
+				}
+				
+				if (arguments[ii] >= attributes.fullwordAt( ao + OffsetOccurs)) 
+					throw new ReferenceError("Occurs out of bounds: " + name);
+				
+				fieldOffset += arguments[ii] * attributes.fullwordAt( ao + OffsetLength );
+				ao = attributes.fullwordAt( ao + OffsetOccParent ) * attributeFieldLength;
+				ii++;
+			}
+			
+			switch (attributes.charCodeAt( attributeOffset )) {
+				case 0:
+					if (typeof(value) != 'string') value = value.toString();
+					if (value.length < attributes.fullwordAt( attributeOffset + OffsetLength )) {
+						me.buffer.fillAt(fieldOffset, ' ', 
+										 attributes.fullwordAt( attributeOffset + OffsetLength ));
+					}
+					me.buffer.assignAt(fieldOffset, 
+					    value.length > attributes.fullwordAt( attributeOffset + OffsetLength ) ? value.substring(0, attributes.fullwordAt( attributeOffset + OffsetLength )) : value);
+					break;
+				case 1:
+					me.buffer.setBinaryAt(fieldOffset, value, 
+										  attributes.charCodeAt( attributeOffset + OffsetPrecision ), 
+										  attributes.charCodeAt( attributeOffset + OffsetSigned ) ? true : false);
+					break;
+				case 2:
+					me.buffer.setPackedAt(fieldOffset, value, 
+										  attributes.charCodeAt( attributeOffset + OffsetPrecision ), 
+										  attributes.charCodeAt( attributeOffset + OffsetScale ), 
+										  attributes.charCodeAt( attributeOffset + OffsetSigned ) ? true : false);
+					break;
+				case 3:
+					me.buffer.setZonedAt(fieldOffset, value, 
+										 attributes.charCodeAt( attributeOffset + OffsetPrecision ), 
+										 attributes.charCodeAt( attributeOffset + OffsetScale ), 
+										 attributes.charCodeAt( attributeOffset + OffsetSigned ) ? true : false);
+					break;
+				default:
+					throw new TypeError("Invalid copybook data type " + attributes.charCodeAt( attributeOffset ) + " for " + name);
+			}
+		}
+	}
+}) ();
